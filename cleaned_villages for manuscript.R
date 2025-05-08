@@ -1,12 +1,12 @@
 #########################################################################
-                 ###----LOCATION DATA CLEANING----#
+###----LOCATION DATA CLEANING----#
 ##########################################################################
 
 #-- Loading packages------#
 pacman::p_load(sf,
                tidyverse)
 
-#-------- Loading villages data ----------------------------#
+#-------- Loading `LOCATION NAME`s data ----------------------------#
 data = read_sf("data/villages/villages_updated_0208.GeoJSON")
 
 
@@ -397,356 +397,436 @@ data$village[data$village == "MKUNG`UNDA"] <- "NKUNG'UNDA"
 data$village = as.factor(data$village)
 levels(data$village)
 
-data = data[,c("village", "health_facility", "geometry")]
+data = data[,c("village","health_facility","_id","_submission_time","geometry")]
+
+data$`_submission_time` <- as.Date(data$`_submission_time`)
+
 
 data=st_zm(data) #908 locations
 
-#write_csv(data,"intermediaries/kobo_vill.csv") #This was exported and visualised in QGIS
-                   
+#Round geometry and extract X and Y
+data$geometry <- lapply(data$geometry, function(coord) round(coord, 5))
+data$X <- sapply(data$geometry, function(coord) coord[1])
+data$Y <- sapply(data$geometry, function(coord) coord[2])
+
+# Format with exactly 5 decimal places (as character for display/export)
+
+data$X_str <- format(round(data$X, 5), nsmall = 5)
+data$Y_str <- format(round(data$Y, 5), nsmall = 5)
+
+# Reformat geometry column to have formatted coordinates as string
+data$geometry_str <- paste0("c(", data$X_str, ", ", data$Y_str, ")")
+
+# Create sf object using numeric X and Y (not string ones)
+data_sf <- st_as_sf(data, coords = c("X", "Y"), crs = 4326)  # WGS84
+
+
+
+#write_csv(data_sf,"intermediaries/kobo_dataset.csv") # This was exported and visualized in QGIS
+                                                      # Also, added an attribute of TA/Ward name and 
+                                                      # Area type to the dataset
+
 
 ##Imported villages from QGIS and continued data cleaning
-kobo_villages <- read_sf("intermediaries/QGIS/inputs/locations/kobo_vill.shp")
+kobo_villages <- read_sf("intermediaries/kobo_dataset_ta.shp")
 
 kobo_villages2 <- distinct(kobo_villages,village, .keep_all = TRUE)
 
+#Renaming columns of the data set
+kobo_villages2 <- kobo_villages2 %>%
+  rename(
+    "LOCATION NAME" = "village",
+    "HEALTH FACILITY" = "health_fac",
+    "DATE MAPPED" = "_submissio",
+    "TA/WARD NAME" = "TA_NAME",
+    "AREA TYPE" = "area_type"
+  )
+
 
 ###---Dataset for manuscript
-villages_manuscript <- kobo_villages2[, c("village", "X", "Y")]
+villages_manuscript <- kobo_villages2[, c("LOCATION NAME","HEALTH FACILITY","TA/WARD NAME","AREA TYPE","DATE MAPPED","X","Y")]
 
-villages_manuscript <- st_drop_geometry(villages_manuscript)
-villages_manuscript$village = as.factor(villages_manuscript$village)
-levels(villages_manuscript$village)
+
+villages_manuscript$`LOCATION NAME` = as.factor(villages_manuscript$`LOCATION NAME`)
+levels(villages_manuscript$`LOCATION NAME`)
 
 #-----Editing names for final documentation in our manuscript
-villages_manuscript$village = as.character(villages_manuscript$village)
+villages_manuscript$`LOCATION NAME` = as.character(villages_manuscript$`LOCATION NAME`)
 
-villages_manuscript$village[villages_manuscript$village == "3WAYS"] <- "3 WAYS"
-villages_manuscript$village[villages_manuscript$village == "CHING\x92OMBE"] <- "CHING'OMBE"
-villages_manuscript$village[villages_manuscript$village == "M\x92BWELERA"] <- "M'BWELERA"
-villages_manuscript$village[villages_manuscript$village == "ANDREW2"] <- "ANDREW 2"
-villages_manuscript$village[villages_manuscript$village == "ANGELOGOVEYA"] <- "ANGELO GOVEYA"
-villages_manuscript$village[villages_manuscript$village == "AREA1"] <- "AREA 1"
-villages_manuscript$village[villages_manuscript$village == "AREA11"] <- "AREA 11"
-villages_manuscript$village[villages_manuscript$village == "AREA2"] <- "AREA 2"
-villages_manuscript$village[villages_manuscript$village == "AREA5"] <- "AREA 5"
-villages_manuscript$village[villages_manuscript$village == "AREA8"] <- "AREA 8"
-villages_manuscript$village[villages_manuscript$village == "AREA12"] <- "AREA 12"
-villages_manuscript$village[villages_manuscript$village == "AREA3"] <- "AREA 3"
-villages_manuscript$village[villages_manuscript$village == "AREA6"] <- "AREA 6"
-villages_manuscript$village[villages_manuscript$village == "AREA9"] <- "AREA 9"
-villages_manuscript$village[villages_manuscript$village == "AREA10"] <- "AREA 14"
-villages_manuscript$village[villages_manuscript$village == "AREA4"] <- "AREA 4"
-villages_manuscript$village[villages_manuscript$village == "AREA7"] <- "AREA 7"
-villages_manuscript$village[villages_manuscript$village == "ATUPELERESTHOUSE"] <- "ATUPELE RESTHOUSE"
-villages_manuscript$village[villages_manuscript$village == "BAGHDAD1"] <- "BAGHDADA 1"
-villages_manuscript$village[villages_manuscript$village == "BENILIGOGO"] <- "BENI LIGOGO"
-villages_manuscript$village[villages_manuscript$village == "BIMSTAFFHOUSES"] <- "BIM STAFF HOUSES"
-villages_manuscript$village[villages_manuscript$village == "BCAHILLS"] <- "BCA HILLS"
-villages_manuscript$village[villages_manuscript$village == "ANDISENISELF-BOARDING"] <- "ANDISENI SELF BOARDING"
-villages_manuscript$village[villages_manuscript$village == "ARMYSEC.SCHOOL"] <- "ARMY SECONDARY SCHOOL"
-villages_manuscript$village[villages_manuscript$village == "BCAVILLAGE(NACHAMBA)"] <- "BCA (NACHAMBA)"
-villages_manuscript$village[villages_manuscript$village == "BESTORA.MLENGA"] <- "BESTORA MLENGA"
-villages_manuscript$village[villages_manuscript$village == "BLANTYRESEC.SCHOOL"] <- "BLANTYRE SECONDARY SCHOOL"
-villages_manuscript$village[villages_manuscript$village == "BTMARKET"] <- "BLANTYRE MARKET"
-villages_manuscript$village[villages_manuscript$village == "CHANIKANEARHC"] <- "CHANIKA NEAR HC"
-villages_manuscript$village[villages_manuscript$village == "BIZMARK1"] <- "BIZMARK 1"
-villages_manuscript$village[villages_manuscript$village == "BLANTYREWATERBOARD"] <- "BLANTYRE WATER BOARD"
-villages_manuscript$village[villages_manuscript$village == "CALVARYFAMILYCHURCH"] <- "CALVARY FAMILY CHURCH"
-villages_manuscript$village[villages_manuscript$village == "CHASANTHAKA"] <- "CHASWANTHAKA"
-villages_manuscript$village[villages_manuscript$village == "BLANTYREPOLICE"] <- "BLANTYRE POLICE"
-villages_manuscript$village[villages_manuscript$village == "CHEKIWA"] <- "CHE KIWA"
-villages_manuscript$village[villages_manuscript$village == "CHEKIMU"] <- "CHE KIMU"
-villages_manuscript$village[villages_manuscript$village == "CHEMBONA"] <- "CHE MBONA"
-villages_manuscript$village[villages_manuscript$village == "CHEMMADI"] <- "CHE MMADI"
-villages_manuscript$village[villages_manuscript$village == "CHEMTAMBO"] <- "CHE MTAMBO"
-villages_manuscript$village[villages_manuscript$village == "CHEMUSAMARKET"] <- "CHEMUSA MARKET"
-villages_manuscript$village[villages_manuscript$village == "CHEMUSANEARMATABWA"] <- "CHEMUSA NEAR MATABWA"
-villages_manuscript$village[villages_manuscript$village == "CHEUDZU"] <- "CHE UDZU"
-villages_manuscript$village[villages_manuscript$village == "CHICHIRIPRISON"] <- "CHICHIRI PRISON"
-villages_manuscript$village[villages_manuscript$village == "CHEMUSANEARLIPONGA"] <- "CHEMUSA NEAR IPONGA"
-villages_manuscript$village[villages_manuscript$village == "CHEMUSASUPPERETE"] <- "CHEMUSA SUPPERETE"
-villages_manuscript$village[villages_manuscript$village == "CHIGUMULA2"] <- "CHIGUMULA 2"
-villages_manuscript$village[villages_manuscript$village == "CHEMUSACHINANGWA"] <- "CHEMUSA CHINANGWA"
-villages_manuscript$village[villages_manuscript$village == "CHEMUSANEARMAGASACCAP"] <- "CHEMUSA NEAR MAGASA CCAP"
-villages_manuscript$village[villages_manuscript$village == "CHIGUMULAFORESTRYRESERVE"] <- "CHIGUMULA FOREST RESERVE"
-villages_manuscript$village[villages_manuscript$village == "CHILOMONIHOUSING"] <- "CHILOMONI HOUSING"
-villages_manuscript$village[villages_manuscript$village == "CHIMWANKHUNDACHISA"] <- "CHIMWANKHUNDA CHISA"
-villages_manuscript$village[villages_manuscript$village == "CHIMWANKHUNDAMALDECO"] <- "CHIMWANKHUNDA MALDECO"
-villages_manuscript$village[villages_manuscript$village == "CHINANGWANEARADVENTIST"] <- "CHINANGWA NEAR ADVENTIST"
-villages_manuscript$village[villages_manuscript$village == "CHILOMONIPOLICE"] <- "CHILOMONI POLICE"
-villages_manuscript$village[villages_manuscript$village == "CHIMWANKHUNDADEC"] <- "CHIMWANKHUNDA DAY SECONDARY SCHOOL"
-villages_manuscript$village[villages_manuscript$village == "CHIMWANKHUNDANEARJB"] <- "CHIMWANKHUNDA NEAR JB"
-villages_manuscript$village[villages_manuscript$village == "CHING'AMBAB"] <- "CHING'AMBA B"
-villages_manuscript$village[villages_manuscript$village == "CHILINGENIPENSULO"] <- "CHILINGENI PENSULO"
-villages_manuscript$village[villages_manuscript$village == "CHIMWAKHUNDADAM"] <- "CHIMWAKHUNDA DAM"
-villages_manuscript$village[villages_manuscript$village == "CHIMWANKHUNDALIVINGWATERS"] <- "CHIMWANKHUNDA LIVING WATERS"
-villages_manuscript$village[villages_manuscript$village == "CHIMWANKHUNDAZION"] <- "CHIMWANKHUNDA ZION"
-villages_manuscript$village[villages_manuscript$village == "CHINSEUBEHINGTARVEN"] <- "CHINSEU BEHIND TARVEN"
-villages_manuscript$village[villages_manuscript$village == "CHINUPULE1"] <- "CHINUPULE 1"
-villages_manuscript$village[villages_manuscript$village == "CHIRIMBASUYANEARMICHIRUSCHOOL"] <- "CHIRIMBA SUYA NEAR MICHIRU SCHOOL"
-villages_manuscript$village[villages_manuscript$village == "CHLIMAMESANEARKIOSK"] <- "CHILIMA MESA NEAR KIOSK"
-villages_manuscript$village[villages_manuscript$village == "CHINSEUSAWA"] <- "CHINSEU SAWA"
-villages_manuscript$village[villages_manuscript$village == "CHINUPULE,NEARMAKHETHA"] <- "CHINUPULE NEAR MAKHETHA"
-villages_manuscript$village[villages_manuscript$village == "CHINSEUDZIMBIRI"] <- "CHINSEU DZIMBIRI"
-villages_manuscript$village[villages_manuscript$village == "CHINUKULE1NEARSTANCESCHOOL"] <- "CHINUKULE 1 NEAR STANCE SCHOOL"
-villages_manuscript$village[villages_manuscript$village == "CHISAWANISCHOOL"] <- "CHISAWANI SCHOOL"
-villages_manuscript$village[villages_manuscript$village == "CIDRICK"] <- "CIDRECK"
-villages_manuscript$village[villages_manuscript$village == "CIDRICMASIKAMU"] <- "CIDRECK MASIKAMU"
-villages_manuscript$village[villages_manuscript$village == "ENOSKACHULU"] <- "ENOCK KACHULU"
-villages_manuscript$village[villages_manuscript$village == "COLLAGELINES"] <- "COLLEGE LINES"
-villages_manuscript$village[villages_manuscript$village == "CHUMACHIYENDA"] <- "CHUMA CHIYENDA"
-villages_manuscript$village[villages_manuscript$village == "COURAGEOUSKIDS"] <- "COURAGEOUS KIDS"
-villages_manuscript$village[villages_manuscript$village == "ESCOMMODEL"] <- "ESCOM MODEL"
-villages_manuscript$village[villages_manuscript$village == "DOWNMKOLESYA"] <- "MKOLESYA"
-villages_manuscript$village[villages_manuscript$village == "GAESIMAJIGA"] <- "GAESI MAJIGA"
-villages_manuscript$village[villages_manuscript$village == "GREENCORNER"] <- "GREEN CORNER"
-villages_manuscript$village[villages_manuscript$village == "FANSALINEARJECOM"] <- "FANSALI NEAR JECOM"
-villages_manuscript$village[villages_manuscript$village == "GAESIRAILWAY"] <- "GAESI RAILWAY"
-villages_manuscript$village[villages_manuscript$village == "GEORGEVILLAGE"] <- "GEORGE"
-villages_manuscript$village[villages_manuscript$village == "GOVERNMENT,CHILOMONILEA"] <- "CHILOMONI LEA"
-villages_manuscript$village[villages_manuscript$village == "GREENMALATA"] <- "GREEN MALATA"
-villages_manuscript$village[villages_manuscript$village == "GAESIZANDEYA"] <- "GAESI ZANDEYA"
-villages_manuscript$village[villages_manuscript$village == "GOODSAMARITAN"] <- "GOOD SAMARITAN"
-villages_manuscript$village[villages_manuscript$village == "GREENVALLEY"] <- "GREEN VALLEY"
-villages_manuscript$village[villages_manuscript$village == "GOMBERAFAR"] <- "GOMBERAFA"
-villages_manuscript$village[villages_manuscript$village == "JAMESONKAPENI"] <- "JAMESON KAPENI"
-villages_manuscript$village[villages_manuscript$village == "JOHNKWADYA"] <- "JOHN KWADYA"
-villages_manuscript$village[villages_manuscript$village == "JOHNWHAYO"] <- "JOHN WHAYO"
-villages_manuscript$village[villages_manuscript$village == "JORDANCLINIC"] <- "JORDAN CLINIC"
-villages_manuscript$village[villages_manuscript$village == "JOSEPHNJILIKA"] <- "JOSEPH NJILIKA"
-villages_manuscript$village[villages_manuscript$village == "KABANGOKAMBANO"] <- "KABANGO KAMBANO"
-villages_manuscript$village[villages_manuscript$village == "JAMESONIKAPENI"] <- "JAMESON KAPENI"
-villages_manuscript$village[villages_manuscript$village == "JEWETAMALIYA"] <- "JEWETA MALIYA"
-villages_manuscript$village[villages_manuscript$village == "JOHNKWACHA"] <- "JOHN KWACHA"
-villages_manuscript$village[villages_manuscript$village == "JULIUSSUPEDI"] <- "JULIUS SUPEDI"
-villages_manuscript$village[villages_manuscript$village == "JUSTINMKUWEYA"] <- "JUSTI MKUWEYA"
-villages_manuscript$village[villages_manuscript$village == "KACHINGWEMOTEL"] <- "KACHINGWE MOTEL"
-villages_manuscript$village[villages_manuscript$village == "KAUSIWA1"] <- "KAUSIWA 1"
-villages_manuscript$village[villages_manuscript$village == "KATCHAKHWALA"] <- "KATCHAKWALA"
-villages_manuscript$village[villages_manuscript$village == "KANJEDZATC"] <- "KANJEDZA TC"
-villages_manuscript$village[villages_manuscript$village == "KAUSIWA3"] <- "KAUSIWA 3"
-villages_manuscript$village[villages_manuscript$village == "KUTSALANKUTI"] <- "KUTSALANKUTI RESTHOUSE"
-villages_manuscript$village[villages_manuscript$village == "M`BWELERA"] <- "M'BWELERA"
-villages_manuscript$village[villages_manuscript$village == "LIKULUSCHOOL"] <- "LIKULU SCHOOL"
-villages_manuscript$village[villages_manuscript$village == "LIRANGWETPA"] <- "LIRANGWE TPA"
-villages_manuscript$village[villages_manuscript$village == "LUNZUHOSPITAL"] <- "LUNZU HOSPITAL"
-villages_manuscript$village[villages_manuscript$village == "LIKHUBULANEARPACT"] <- "LIKHUBULA NEAR PACT"
-villages_manuscript$village[villages_manuscript$village == "LIRANGWEMATERNITY"] <- "LIRANGWE MATERNITY"
-villages_manuscript$village[villages_manuscript$village == "MALENGAB"] <- "MALENGA B"
-villages_manuscript$village[villages_manuscript$village == "MAIZEMILL"] <- "MAIZE MILL"
-villages_manuscript$village[villages_manuscript$village == "MANASE,KIOSK"] <- "MANASE KIOSK"
-villages_manuscript$village[villages_manuscript$village == "MANESIKAPENI"] <- "MANESI KAPENI"
-villages_manuscript$village[villages_manuscript$village == "MANEYACHANZA"] <- "MANEYA CHANZA"
-villages_manuscript$village[villages_manuscript$village == "MANESMAGOMBO"] <- "MANESI MAGOMBO"
-villages_manuscript$village[villages_manuscript$village == "MANGOCHIB"] <- "MANGOCHI B"
-villages_manuscript$village[villages_manuscript$village == "MANJOMBEKATETE"] <- "MANJOMBE KATETE"
-villages_manuscript$village[villages_manuscript$village == "MALUNGAMOYO"] <- "MALINGA MOYO"
-villages_manuscript$village[villages_manuscript$village == "MANGOCHIA"] <- "MANGOCHI A"
-villages_manuscript$village[villages_manuscript$village == "MASIRIKALI"] <- "MASILIKALI"
-villages_manuscript$village[villages_manuscript$village == "MASIRIKILI"] <- "MASILIKALI"
-villages_manuscript$village[villages_manuscript$village == "MATEMENEARMOSQUE"] <- "MATEME NEAR MOSQUE"
-villages_manuscript$village[villages_manuscript$village == "MATEYUJERE"] <- "MATEYU JERE"
-villages_manuscript$village[villages_manuscript$village == "MBAYANIMARKET2"] <- "MBAYANI MARKET 2"
-villages_manuscript$village[villages_manuscript$village == "MBAYANINEARRAILWAY"] <- "MBAYANI NEAR RAILWAY"
-villages_manuscript$village[villages_manuscript$village == "MBAYANIORTHODOX"] <- "MBAYANI ORTHODOX"
-villages_manuscript$village[villages_manuscript$village == "MBCTRANSMITTER"] <- "MBC TRANSMITTER"
-villages_manuscript$village[villages_manuscript$village == "MBAYANIMARKET1"] <- "MBAYANI MARKET 1"
-villages_manuscript$village[villages_manuscript$village == "MBAYANINEARJEHOVAWITNESS"] <- "MBAYANI NEAR JEHOVA WITNESS CHURCH"
-villages_manuscript$village[villages_manuscript$village == "MILAREATXUL"] <- "MILARE SCHOOL"
-villages_manuscript$village[villages_manuscript$village == "MBAYANINEARSDACHURCH"] <- "MBAYANI NEAR SDA CHURCH"
-villages_manuscript$village[villages_manuscript$village == "MBAYANISHALOM"] <- "MBAYANI SHALOM"
-villages_manuscript$village[villages_manuscript$village == "MBEMBERE"] <- "MBEMBELE"
-villages_manuscript$village[villages_manuscript$village == "MFUMBAFARM"] <- "MFUMBA FARM"
-villages_manuscript$village[villages_manuscript$village == "MICHIRUFORESTRESERVE"] <- "MICHIRU FOREST RESERVE"
-villages_manuscript$village[villages_manuscript$village == "MFITIZALIMBA"] <- "MFITI ZALIMBA"
-villages_manuscript$village[villages_manuscript$village == "MBAYANIPAMAJIGA"] <- "MBAYANI MAJIGA"
-villages_manuscript$village[villages_manuscript$village == "MBAYANINEARSCHOOL"] <- "MBAYANI NEAR SCHOOL"
-villages_manuscript$village[villages_manuscript$village == "MBAYANINEARGROUND"] <- "MBAYANI NEAR GROUND"
-villages_manuscript$village[villages_manuscript$village == "MBAYANIKWAMFUMU"] <- "MBAYANI KWA MFUMU"
-villages_manuscript$village[villages_manuscript$village == "MIRALECAMP[MIRALEHILLSFR]"] <- "MIRACLE CAMP"
-villages_manuscript$village[villages_manuscript$village == "MISATICHIGUMULA"] <- "MISATI CHIGUMULA"
-villages_manuscript$village[villages_manuscript$village == "MIRALEFOREST"] <- "MIRALE FOREST"
-villages_manuscript$village[villages_manuscript$village == "MIRALEPOLICE"] <- "MILARE POLICE"
-villages_manuscript$village[villages_manuscript$village == "MISEWU6"] <- "MISEWU 6"
-villages_manuscript$village[villages_manuscript$village == "MLENGA1"] <- "MLENGA 1"
-villages_manuscript$village[villages_manuscript$village == "MOSESMALUWA"] <- "MOSES MALUWA"
-villages_manuscript$village[villages_manuscript$village == "MOUNTPLESANT"] <- "MOUNT PLESANT"
-villages_manuscript$village[villages_manuscript$village == "MPASUKACHIUNDA"] <- "MPASUKA CHIUNDA"
-villages_manuscript$village[villages_manuscript$village == "MPHEPOZIYAYA"] <- "MPHEPO ZIYAYA"
-villages_manuscript$village[villages_manuscript$village == "MODELCHISAWAWAHOUSE"] <- "MODEL CHISAWAWA HOUSE"
-villages_manuscript$village[villages_manuscript$village == "MPEMBAHEALTH"] <- "MPEMBA HEALTH CENTRE"
-villages_manuscript$village[villages_manuscript$village == "MSIKAWANJALAM'BAWA"] <- "MSIKAWANJALA M'BAWA"
-villages_manuscript$village[villages_manuscript$village == "MULUNGUZIGROUND"] <- "MULUNGUZI GROUND"
-villages_manuscript$village[villages_manuscript$village == "MWAIWATHURESTHOUSE"] <- "MWAIWATHU RESTHOUSE"
-villages_manuscript$village[villages_manuscript$village == "MWAMUNAMMODZI"] <- "MWAMUNA MMODZI"
-villages_manuscript$village[villages_manuscript$village == "NAMWANJESCHOOL"] <- "NAMWANJE SCHOOL"
-villages_manuscript$village[villages_manuscript$village == "NAMWALISIIYO"] <- "NAMWALISIYO"
-villages_manuscript$village[villages_manuscript$village == "NAMWANJESCHOOL"] <- "NAMWANJE SCHOOL"
-villages_manuscript$village[villages_manuscript$village == "NAZOMBE1"] <- "NAZOMBE 1"
-villages_manuscript$village[villages_manuscript$village == "NAZOMBE1A"] <- "NAZOMBE 1A"
-villages_manuscript$village[villages_manuscript$village == "NAZOMBE2"] <- "NAZOMBE 2"
-villages_manuscript$village[villages_manuscript$village == "NDILANDE HILL"] <- "NDIRANDE HILL"
-villages_manuscript$village[villages_manuscript$village == "NDISALEFARM"] <- "NDISALE FARM"
-villages_manuscript$village[villages_manuscript$village == "NDIYANIRESTHOUSE"] <- "NDIYANI RESTHOUSE"
-villages_manuscript$village[villages_manuscript$village == "NDODOADMARC"] <- "NDODO ADMARC"
-villages_manuscript$village[villages_manuscript$village == "NGUMBED.E.C"] <- "NGUMBE D.E.C"
-villages_manuscript$village[villages_manuscript$village == "CHIKUNDAFARM"] <- "CHIKUNDA FARM"
-villages_manuscript$village[villages_manuscript$village == "CHIKUNDA FARMO"] <- "CHIKUNDA FARM"
-villages_manuscript$village[villages_manuscript$village == "BENLIGOGO"] <- "BENI LIGOGO"
-villages_manuscript$village[villages_manuscript$village == "BOYSHOME"] <- "BOYS HOME"
-villages_manuscript$village[villages_manuscript$village == "CHADZUNDI"] <- "CHADZUNDA"
-villages_manuscript$village[villages_manuscript$village == "CHEUDZI"] <- "CHEUZI"
-villages_manuscript$village[villages_manuscript$village == "CHIGOMIRE"] <- "CHIGOMILE"
-villages_manuscript$village[villages_manuscript$village == "CHIGUMULA1"] <- "CHIGUMULA 1"
-villages_manuscript$village[villages_manuscript$village == "CHILAWENIHOUSING"] <- "CHILAWENI HOUSING"
-villages_manuscript$village[villages_manuscript$village == "CHILEKAMISSION"] <- "CHILEKA MISSION"
-villages_manuscript$village[villages_manuscript$village == "CHILOMONI,SEIBO"] <- "CHILOMONI SEIBO"
-villages_manuscript$village[villages_manuscript$village == "CHILONGAKAYESA"] <- "CHILONGA KAYESA"
-villages_manuscript$village[villages_manuscript$village == "CHILUNDUKA"] <- "CHILUNDIKA"
-villages_manuscript$village[villages_manuscript$village == "CHIMARILO"] <- "CHIMALIRO"
-villages_manuscript$village[villages_manuscript$village == "CHIMWANKHUNDACHAWINGA"] <- "CHIMWANKHUNDA CHAWINGA"
-villages_manuscript$village[villages_manuscript$village == "CHINSEUBEHINDTARVEN"] <- "CHINSEU BEHIND TARVEN"
-villages_manuscript$village[villages_manuscript$village == "CHINTUMBILA"] <- "CHIMTUMBIRA"
-villages_manuscript$village[villages_manuscript$village == "GOMANIC"] <- "GOMANI C"
-villages_manuscript$village[villages_manuscript$village == "IMBWE"] <- "IMBWA"
-villages_manuscript$village[villages_manuscript$village == "ISA"] <- "ISSA"
-villages_manuscript$village[villages_manuscript$village == "JEWETA1"] <- "JEWETA 1"
-villages_manuscript$village[villages_manuscript$village == "KADIKIKILA"] <- "KADIKILA"
-villages_manuscript$village[villages_manuscript$village == "KADIKIRA"] <- "KADIKILA"
-villages_manuscript$village[villages_manuscript$village == "KAMPHIKAMTAMA"] <- "KAPHIKAMTAMA"
-villages_manuscript$village[villages_manuscript$village == "KANDEYA"] <- "KANDAYA"
-villages_manuscript$village[villages_manuscript$village == "KMNTUKULE"] <- "KANTUKULE"
-villages_manuscript$village[villages_manuscript$village == "KANINGA"] <- "KANING'A"
-villages_manuscript$village[villages_manuscript$village == "KANSINZI"] <- "KANSIZI"
-villages_manuscript$village[villages_manuscript$village == "KAPITAWO"] <- "KAPITAO"
-villages_manuscript$village[villages_manuscript$village == "KATSALAMBANDE"] <- "KASALAMBANDE"
-villages_manuscript$village[villages_manuscript$village == "KIRI"] <- "KILI"
-villages_manuscript$village[villages_manuscript$village == "KUMBENDERA"] <- "KUMBENDELA"
-villages_manuscript$village[villages_manuscript$village == "KUMBOKOOLA"] <- "KUMBOKOLA"
-villages_manuscript$village[villages_manuscript$village == "KUMTHAWIRA"] <- "KUMTHAWILA"
-villages_manuscript$village[villages_manuscript$village == "KUMWAMBE"] <- "KUMWEMBE"
-villages_manuscript$village[villages_manuscript$village == "KUTSALANKUTIRESTHOUSE"] <- "KUTSALANKUTI RESTHOUSE"
-villages_manuscript$village[villages_manuscript$village == "MAGOMBONYATI"] <- "MAGOMBO NYATI"
-villages_manuscript$village[villages_manuscript$village == "LUPUGAMA"] <- "LIPUNGAMA"
-villages_manuscript$village[villages_manuscript$village == "MAKANJILA"] <- "MAKANJIRA"
-villages_manuscript$village[villages_manuscript$village == "MAKWERANI"] <- "MAKWELANI"
-villages_manuscript$village[villages_manuscript$village == "MANESE"] <- "MANESI"
-villages_manuscript$village[villages_manuscript$village == "MATEMBAFARM"] <- "MATEMBA FARM"
-villages_manuscript$village[villages_manuscript$village == "MATOPEPLOT"] <- "MATOPE PLOT"
-villages_manuscript$village[villages_manuscript$village == "MJAMBA"] <- "NJAMBA"
-villages_manuscript$village[villages_manuscript$village == "MKUMBAB"] <- "MKUMBA B"
-villages_manuscript$village[villages_manuscript$village == "JOSAM"] <- "JOSAMU"
-villages_manuscript$village[villages_manuscript$village == "KALITSILO"] <- "KALITSIRO"
-villages_manuscript$village[villages_manuscript$village == "LIMPUNGAMA"] <- "LIPUNGAMA"
-villages_manuscript$village[villages_manuscript$village == "MALUNGAA"] <- "MALUNGA A"
-villages_manuscript$village[villages_manuscript$village == "MALUNGA B"] <- "MALUNGA B"
-villages_manuscript$village[villages_manuscript$village == "MAPONDERA"] <- "MAPONDELA"
-villages_manuscript$village[villages_manuscript$village == "MDALAB"] <- "MDALA B"
-villages_manuscript$village[villages_manuscript$village == "MIZENJE"] <- "MIZANJE"
-villages_manuscript$village[villages_manuscript$village == "MOLOSONI"] <- "MOLOSON"
-villages_manuscript$village[villages_manuscript$village == "MPEMBAS.D.I"] <- "MPEMBA S.D.I"
-villages_manuscript$village[villages_manuscript$village == "MTELELA"] <- "MTELERA"
-villages_manuscript$village[villages_manuscript$village == "MUDI"] <- "MUDE"
-villages_manuscript$village[villages_manuscript$village == "MUHEKA"] <- "MUHEKU"
-villages_manuscript$village[villages_manuscript$village == "MULENGO"] <- "MULENGA"
-villages_manuscript$village[villages_manuscript$village == "MUSSAH"] <- "MUSSA"
-villages_manuscript$village[villages_manuscript$village == "MWANSAMBO1"] <- "MWANSAMBO 1"
-villages_manuscript$village[villages_manuscript$village == "MWAZAMA"] <- "MWANZAMA"
-villages_manuscript$village[villages_manuscript$village == "MWASAMA"] <- "MWANZAMA"
-villages_manuscript$village[villages_manuscript$village == "MWEMBELE"] <- "MWEMBERE"
-villages_manuscript$village[villages_manuscript$village == "NGUMBED.E.C."] <- "NGUMBE D.E.C"
-villages_manuscript$village[villages_manuscript$village == "NJAMBE"] <- "NJAMBA"
-villages_manuscript$village[villages_manuscript$village == "NEWLANDS"] <- "NEWLINES"
-villages_manuscript$village[villages_manuscript$village == "NANGUMI"] <- "NANGUNI"
-villages_manuscript$village[villages_manuscript$village == "NJULIR.C.MISSION"] <- "NJULI R.C MISSION"
-villages_manuscript$village[villages_manuscript$village == "NKOLESYA"] <- "MKOLESYA"
-villages_manuscript$village[villages_manuscript$village == "NTATHA"] <- "NTANTHA"
-villages_manuscript$village[villages_manuscript$village == "NTHUKWANEARMICHIRU"] <- "NTHUKWA NEAR MICHIRU"
-villages_manuscript$village[villages_manuscript$village == "NTOSO"] <- "MTOSO"
-villages_manuscript$village[villages_manuscript$village == "NUMBER1"] <- "NUMBER 1"
-villages_manuscript$village[villages_manuscript$village == "NUMBER2"] <- "NUMBER 2"
-villages_manuscript$village[villages_manuscript$village == "NUMBER3"] <- "NUMBER 3"
-villages_manuscript$village[villages_manuscript$village == "NUMBER4"] <- "NUMBER 4"
-villages_manuscript$village[villages_manuscript$village == "NUMBER5"] <- "NUMBER 5"
-villages_manuscript$village[villages_manuscript$village == "NUMBER6"] <- "NUMBER 6"
-villages_manuscript$village[villages_manuscript$village == "NUMBER7"] <- "NUMBER 7"
-villages_manuscript$village[villages_manuscript$village == "NUMBER9"] <- "NUMBER 9"
-villages_manuscript$village[villages_manuscript$village == "ORIFARM"] <- "ORI FARM"
-villages_manuscript$village[villages_manuscript$village == "PEMBAVERT."] <- "PEMBA VERT"
-villages_manuscript$village[villages_manuscript$village == "PENSULO2A"] <- "PENSULO 2A"
-villages_manuscript$village[villages_manuscript$village == "PENSULO2B"] <- "PENSULO 2B"
-villages_manuscript$village[villages_manuscript$village == "PETERBILILA"] <- "PETER BILILA"
-villages_manuscript$village[villages_manuscript$village == "POLICESTATION"] <- "POLICE STATION"
-villages_manuscript$village[villages_manuscript$village == "POLYHOSTELS"] <- "POLY HOSTELS"
-villages_manuscript$village[villages_manuscript$village == "RALPHMAONDE"] <- "RALPH MAONDE"
-villages_manuscript$village[villages_manuscript$village == "RCCHURCH"] <- "ROMAN CATHOLIC CHURCH"
-villages_manuscript$village[villages_manuscript$village == "REUBENI"] <- "REUBEN"
-villages_manuscript$village[villages_manuscript$village == "ROADBLOCKHOUSES"] <- "ROAD BLOCK HOUSES"
-villages_manuscript$village[villages_manuscript$village == "RODA"] <- "RHODA"
-villages_manuscript$village[villages_manuscript$village == "RUBEN"] <- "REUBEN"
-villages_manuscript$village[villages_manuscript$village == "SAMSONMGAWA"] <- "SAMSON MGAWA"
-villages_manuscript$village[villages_manuscript$village == "SANDEKANDIWO"] <- "SANDE KANDIWO"
-villages_manuscript$village[villages_manuscript$village == "SANJIKA,ANGLICA"] <- "SANJIKA ANGLICA"
-villages_manuscript$village[villages_manuscript$village == "SANKHWECHE"] <- "SANKWECHE"
-villages_manuscript$village[villages_manuscript$village == "SIMONMPOMBE"] <- "SIMON MPOMBE"
-villages_manuscript$village[villages_manuscript$village == "SIMONMTAMBO"] <- "SIMON MTAMBO"
-villages_manuscript$village[villages_manuscript$village == "SIGEREGE,MARKET"] <- "SIGEREGE MARKET"
-villages_manuscript$village[villages_manuscript$village == "SIMCHIMBATRANS.CO"] <- "SIMCHIMBA TRANS.CO"
-villages_manuscript$village[villages_manuscript$village == "SOCHEQUARRY"] <- "SOCHE QUARRY"
-villages_manuscript$village[villages_manuscript$village == "SOLOMONI"] <- "SOLOMON"
-villages_manuscript$village[villages_manuscript$village == "SOMBAI"] <- "SOMBA 1"
-villages_manuscript$village[villages_manuscript$village == "SOMBAII"] <- "SOMBA 2"
-villages_manuscript$village[villages_manuscript$village == "SONKENEARMSIKAWANJALA"] <- "SONKE NEAR MSIKAWANJALA"
-villages_manuscript$village[villages_manuscript$village == "STLOUIS"] <- "ST LOUIS"
-villages_manuscript$village[villages_manuscript$village == "STPATRICKS"] <- "ST PATRICKS"
-villages_manuscript$village[villages_manuscript$village == "SUNNYSIDE"] <- "SUNNY SIDE"
-villages_manuscript$village[villages_manuscript$village == "SUYANEARNAMETETE"] <- "SUYA NEAR NAMATETE"
-villages_manuscript$village[villages_manuscript$village == "THOMMBERA"] <- "THOMBERA"
-villages_manuscript$village[villages_manuscript$village == "TUNG`ANDEMDALA"] <- "TUNG`ANDE MDALA"
-villages_manuscript$village[villages_manuscript$village == "WASILINJILIKA"] <- "WASILI NJILIKA"
-villages_manuscript$village[villages_manuscript$village == "WILLIAMKULEMERA"] <- "WILLIAM KULEMERA"
-villages_manuscript$village[villages_manuscript$village == "WISIKIBISANI"] <- "WISIKI BISANI"
-villages_manuscript$village[villages_manuscript$village == "WISIKILILAKA"] <- "WISIKI LILAKA"
-villages_manuscript$village[villages_manuscript$village == "ZAMBEZICHURCH"] <- "ZAMBEZI CHURCH"
-villages_manuscript$village[villages_manuscript$village == "ZINGANGUO"] <- "ZINGANGUWO"
-villages_manuscript$village[villages_manuscript$village == "ZONZEZI"] <- "ZONSEZI"
-villages_manuscript$village[villages_manuscript$village == "BIYANI"] <- "BISANI"
-villages_manuscript$village[villages_manuscript$village == "AREA14"] <- "AREA 14"
-villages_manuscript$village[villages_manuscript$village == "CHING�OMBE"] <- "CHING'OMBE"
-villages_manuscript$village[villages_manuscript$village == "FACECO"] <- "FES COMPANY"
-villages_manuscript$village[villages_manuscript$village == "WHAYO"] <- "JOHN WHAYO"
-villages_manuscript$village[villages_manuscript$village == "KANTHIMBANYA"] <- "KANTIMBANYA"
-villages_manuscript$village[villages_manuscript$village == "KAZAMBE"] <- "KAZEMBE"
-villages_manuscript$village[villages_manuscript$village == "SIMCHIMBATRANS.CO."] <- "SIMCHIMBA TRANSPORT COMPANY"
-villages_manuscript$village[villages_manuscript$village == "KAZAMBE"] <- "KAZEMBE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "3WAYS"] <- "3 WAYS"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHING\x92OMBE"] <- "CHING'OMBE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "M\x92BWELERA"] <- "M'BWELERA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ANDREW2"] <- "ANDREW 2"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ANGELOGOVEYA"] <- "ANGELO GOVEYA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA1"] <- "AREA 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA11"] <- "AREA 11"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA2"] <- "AREA 2"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA5"] <- "AREA 5"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA8"] <- "AREA 8"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA12"] <- "AREA 12"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA3"] <- "AREA 3"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA6"] <- "AREA 6"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA9"] <- "AREA 9"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA10"] <- "AREA 14"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA4"] <- "AREA 4"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA7"] <- "AREA 7"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ATUPELERESTHOUSE"] <- "ATUPELE RESTHOUSE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BAGHDAD1"] <- "BAGHDADA 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BENILIGOGO"] <- "BENI LIGOGO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BIMSTAFFHOUSES"] <- "BIM STAFF HOUSES"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BCAHILLS"] <- "BCA HILLS"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ANDISENISELF-BOARDING"] <- "ANDISENI SELF BOARDING"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ARMYSEC.SCHOOL"] <- "ARMY SECONDARY SCHOOL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BCAVILLAGE(NACHAMBA)"] <- "BCA (NACHAMBA)"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BESTORA.MLENGA"] <- "BESTORA MLENGA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BLANTYRESEC.SCHOOL"] <- "BLANTYRE SECONDARY SCHOOL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BTMARKET"] <- "BLANTYRE MARKET"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHANIKANEARHC"] <- "CHANIKA NEAR HC"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BIZMARK1"] <- "BIZMARK 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BLANTYREWATERBOARD"] <- "BLANTYRE WATER BOARD"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CALVARYFAMILYCHURCH"] <- "CALVARY FAMILY CHURCH"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHASANTHAKA"] <- "CHASWANTHAKA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BLANTYREPOLICE"] <- "BLANTYRE POLICE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEKIWA"] <- "CHE KIWA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEKIMU"] <- "CHE KIMU"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEMBONA"] <- "CHE MBONA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEMMADI"] <- "CHE MMADI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEMTAMBO"] <- "CHE MTAMBO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEMUSAMARKET"] <- "CHEMUSA MARKET"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEMUSANEARMATABWA"] <- "CHEMUSA NEAR MATABWA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEUDZU"] <- "CHE UDZU"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHICHIRIPRISON"] <- "CHICHIRI PRISON"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEMUSANEARLIPONGA"] <- "CHEMUSA NEAR IPONGA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEMUSASUPPERETE"] <- "CHEMUSA SUPPERETE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIGUMULA2"] <- "CHIGUMULA 2"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEMUSACHINANGWA"] <- "CHEMUSA CHINANGWA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEMUSANEARMAGASACCAP"] <- "CHEMUSA NEAR MAGASA CCAP"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIGUMULAFORESTRYRESERVE"] <- "CHIGUMULA FOREST RESERVE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHILOMONIHOUSING"] <- "CHILOMONI HOUSING"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIMWANKHUNDACHISA"] <- "CHIMWANKHUNDA CHISA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIMWANKHUNDAMALDECO"] <- "CHIMWANKHUNDA MALDECO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHINANGWANEARADVENTIST"] <- "CHINANGWA NEAR ADVENTIST"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHILOMONIPOLICE"] <- "CHILOMONI POLICE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIMWANKHUNDADEC"] <- "CHIMWANKHUNDA DAY SECONDARY SCHOOL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIMWANKHUNDANEARJB"] <- "CHIMWANKHUNDA NEAR JB"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHING'AMBAB"] <- "CHING'AMBA B"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHILINGENIPENSULO"] <- "CHILINGENI PENSULO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIMWAKHUNDADAM"] <- "CHIMWAKHUNDA DAM"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIMWANKHUNDALIVINGWATERS"] <- "CHIMWANKHUNDA LIVING WATERS"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIMWANKHUNDAZION"] <- "CHIMWANKHUNDA ZION"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHINSEUBEHINGTARVEN"] <- "CHINSEU BEHIND TARVEN"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHINUPULE1"] <- "CHINUPULE 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIRIMBASUYANEARMICHIRUSCHOOL"] <- "CHIRIMBA SUYA NEAR MICHIRU SCHOOL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHLIMAMESANEARKIOSK"] <- "CHILIMA MESA NEAR KIOSK"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHINSEUSAWA"] <- "CHINSEU SAWA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHINUPULE,NEARMAKHETHA"] <- "CHINUPULE NEAR MAKHETHA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHINSEUDZIMBIRI"] <- "CHINSEU DZIMBIRI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHINUKULE1NEARSTANCESCHOOL"] <- "CHINUKULE 1 NEAR STANCE SCHOOL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHISAWANISCHOOL"] <- "CHISAWANI SCHOOL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CIDRICK"] <- "CIDRECK"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CIDRICMASIKAMU"] <- "CIDRECK MASIKAMU"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ENOSKACHULU"] <- "ENOCK KACHULU"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "COLLAGELINES"] <- "COLLEGE LINES"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHUMACHIYENDA"] <- "CHUMA CHIYENDA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "COURAGEOUSKIDS"] <- "COURAGEOUS KIDS"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ESCOMMODEL"] <- "ESCOM MODEL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "DOWNMKOLESYA"] <- "MKOLESYA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "GAESIMAJIGA"] <- "GAESI MAJIGA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "GREENCORNER"] <- "GREEN CORNER"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "FANSALINEARJECOM"] <- "FANSALI NEAR JECOM"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "GAESIRAILWAY"] <- "GAESI RAILWAY"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "GEORGEVILLAGE"] <- "GEORGE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "GOVERNMENT,CHILOMONILEA"] <- "CHILOMONI LEA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "GREENMALATA"] <- "GREEN MALATA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "GAESIZANDEYA"] <- "GAESI ZANDEYA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "GOODSAMARITAN"] <- "GOOD SAMARITAN"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "GREENVALLEY"] <- "GREEN VALLEY"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "GOMBERAFAR"] <- "GOMBERAFA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JAMESONKAPENI"] <- "JAMESON KAPENI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JOHNKWADYA"] <- "JOHN KWADYA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JOHNWHAYO"] <- "JOHN WHAYO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JORDANCLINIC"] <- "JORDAN CLINIC"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JOSEPHNJILIKA"] <- "JOSEPH NJILIKA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KABANGOKAMBANO"] <- "KABANGO KAMBANO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JAMESONIKAPENI"] <- "JAMESON KAPENI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JEWETAMALIYA"] <- "JEWETA MALIYA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JOHNKWACHA"] <- "JOHN KWACHA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JULIUSSUPEDI"] <- "JULIUS SUPEDI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JUSTINMKUWEYA"] <- "JUSTI MKUWEYA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KACHINGWEMOTEL"] <- "KACHINGWE MOTEL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KAUSIWA1"] <- "KAUSIWA 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KATCHAKHWALA"] <- "KATCHAKWALA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KANJEDZATC"] <- "KANJEDZA TC"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KAUSIWA3"] <- "KAUSIWA 3"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KUTSALANKUTI"] <- "KUTSALANKUTI RESTHOUSE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "M`BWELERA"] <- "M'BWELERA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "LIKULUSCHOOL"] <- "LIKULU SCHOOL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "LIRANGWETPA"] <- "LIRANGWE TPA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "LUNZUHOSPITAL"] <- "LUNZU HOSPITAL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "LIKHUBULANEARPACT"] <- "LIKHUBULA NEAR PACT"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "LIRANGWEMATERNITY"] <- "LIRANGWE MATERNITY"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MALENGAB"] <- "MALENGA B"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MAIZEMILL"] <- "MAIZE MILL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MANASE,KIOSK"] <- "MANASE KIOSK"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MANESIKAPENI"] <- "MANESI KAPENI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MANEYACHANZA"] <- "MANEYA CHANZA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MANESMAGOMBO"] <- "MANESI MAGOMBO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MANGOCHIB"] <- "MANGOCHI B"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MANJOMBEKATETE"] <- "MANJOMBE KATETE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MALUNGAMOYO"] <- "MALINGA MOYO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MANGOCHIA"] <- "MANGOCHI A"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MASIRIKALI"] <- "MASILIKALI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MASIRIKILI"] <- "MASILIKALI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MATEMENEARMOSQUE"] <- "MATEME NEAR MOSQUE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MATEYUJERE"] <- "MATEYU JERE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBAYANIMARKET2"] <- "MBAYANI MARKET 2"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBAYANINEARRAILWAY"] <- "MBAYANI NEAR RAILWAY"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBAYANIORTHODOX"] <- "MBAYANI ORTHODOX"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBCTRANSMITTER"] <- "MBC TRANSMITTER"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBAYANIMARKET1"] <- "MBAYANI MARKET 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBAYANINEARJEHOVAWITNESS"] <- "MBAYANI NEAR JEHOVA WITNESS CHURCH"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MILAREATXUL"] <- "MILARE SCHOOL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBAYANINEARSDACHURCH"] <- "MBAYANI NEAR SDA CHURCH"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBAYANISHALOM"] <- "MBAYANI SHALOM"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBEMBERE"] <- "MBEMBELE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MFUMBAFARM"] <- "MFUMBA FARM"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MICHIRUFORESTRESERVE"] <- "MICHIRU FOREST RESERVE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MFITIZALIMBA"] <- "MFITI ZALIMBA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBAYANIPAMAJIGA"] <- "MBAYANI MAJIGA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBAYANINEARSCHOOL"] <- "MBAYANI NEAR SCHOOL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBAYANINEARGROUND"] <- "MBAYANI NEAR GROUND"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MBAYANIKWAMFUMU"] <- "MBAYANI KWA MFUMU"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MIRALECAMP[MIRALEHILLSFR]"] <- "MIRACLE CAMP"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MISATICHIGUMULA"] <- "MISATI CHIGUMULA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MIRALEFOREST"] <- "MIRALE FOREST"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MIRALEPOLICE"] <- "MILARE POLICE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MISEWU6"] <- "MISEWU 6"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MLENGA1"] <- "MLENGA 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MOSESMALUWA"] <- "MOSES MALUWA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MOUNTPLESANT"] <- "MOUNT PLESANT"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MPASUKACHIUNDA"] <- "MPASUKA CHIUNDA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MPHEPOZIYAYA"] <- "MPHEPO ZIYAYA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MODELCHISAWAWAHOUSE"] <- "MODEL CHISAWAWA HOUSE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MPEMBAHEALTH"] <- "MPEMBA HEALTH CENTRE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MSIKAWANJALAM'BAWA"] <- "MSIKAWANJALA M'BAWA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MULUNGUZIGROUND"] <- "MULUNGUZI GROUND"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MWAIWATHURESTHOUSE"] <- "MWAIWATHU RESTHOUSE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MWAMUNAMMODZI"] <- "MWAMUNA MMODZI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NAMWANJESCHOOL"] <- "NAMWANJE SCHOOL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NAMWALISIIYO"] <- "NAMWALISIYO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NAMWANJESCHOOL"] <- "NAMWANJE SCHOOL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NAZOMBE1"] <- "NAZOMBE 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NAZOMBE1A"] <- "NAZOMBE 1A"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NAZOMBE2"] <- "NAZOMBE 2"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NDILANDE HILL"] <- "NDIRANDE HILL"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NDISALEFARM"] <- "NDISALE FARM"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NDIYANIRESTHOUSE"] <- "NDIYANI RESTHOUSE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NDODOADMARC"] <- "NDODO ADMARC"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NGUMBED.E.C"] <- "NGUMBE D.E.C"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIKUNDAFARM"] <- "CHIKUNDA FARM"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIKUNDA FARMO"] <- "CHIKUNDA FARM"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BENLIGOGO"] <- "BENI LIGOGO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BOYSHOME"] <- "BOYS HOME"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHADZUNDI"] <- "CHADZUNDA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHEUDZI"] <- "CHEUZI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIGOMIRE"] <- "CHIGOMILE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIGUMULA1"] <- "CHIGUMULA 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHILAWENIHOUSING"] <- "CHILAWENI HOUSING"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHILEKAMISSION"] <- "CHILEKA MISSION"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHILOMONI,SEIBO"] <- "CHILOMONI SEIBO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHILONGAKAYESA"] <- "CHILONGA KAYESA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHILUNDUKA"] <- "CHILUNDIKA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIMARILO"] <- "CHIMALIRO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHIMWANKHUNDACHAWINGA"] <- "CHIMWANKHUNDA CHAWINGA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHINSEUBEHINDTARVEN"] <- "CHINSEU BEHIND TARVEN"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHINTUMBILA"] <- "CHIMTUMBIRA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "GOMANIC"] <- "GOMANI C"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "IMBWE"] <- "IMBWA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ISA"] <- "ISSA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JEWETA1"] <- "JEWETA 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KADIKIKILA"] <- "KADIKILA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KADIKIRA"] <- "KADIKILA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KAMPHIKAMTAMA"] <- "KAPHIKAMTAMA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KANDEYA"] <- "KANDAYA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KMNTUKULE"] <- "KANTUKULE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KANINGA"] <- "KANING'A"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KANSINZI"] <- "KANSIZI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KAPITAWO"] <- "KAPITAO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KATSALAMBANDE"] <- "KASALAMBANDE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KIRI"] <- "KILI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KUMBENDERA"] <- "KUMBENDELA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KUMBOKOOLA"] <- "KUMBOKOLA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KUMTHAWIRA"] <- "KUMTHAWILA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KUMWAMBE"] <- "KUMWEMBE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KUTSALANKUTIRESTHOUSE"] <- "KUTSALANKUTI RESTHOUSE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MAGOMBONYATI"] <- "MAGOMBO NYATI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "LUPUGAMA"] <- "LIPUNGAMA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MAKANJILA"] <- "MAKANJIRA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MAKWERANI"] <- "MAKWELANI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MANESE"] <- "MANESI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MATEMBAFARM"] <- "MATEMBA FARM"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MATOPEPLOT"] <- "MATOPE PLOT"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MJAMBA"] <- "NJAMBA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MKUMBAB"] <- "MKUMBA B"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "JOSAM"] <- "JOSAMU"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KALITSILO"] <- "KALITSIRO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "LIMPUNGAMA"] <- "LIPUNGAMA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MALUNGAA"] <- "MALUNGA A"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MALUNGA B"] <- "MALUNGA B"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MAPONDERA"] <- "MAPONDELA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MDALAB"] <- "MDALA B"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MIZENJE"] <- "MIZANJE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MOLOSONI"] <- "MOLOSON"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MPEMBAS.D.I"] <- "MPEMBA S.D.I"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MTELELA"] <- "MTELERA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MUDI"] <- "MUDE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MUHEKA"] <- "MUHEKU"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MULENGO"] <- "MULENGA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MUSSAH"] <- "MUSSA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MWANSAMBO1"] <- "MWANSAMBO 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MWAZAMA"] <- "MWANZAMA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MWASAMA"] <- "MWANZAMA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "MWEMBELE"] <- "MWEMBERE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NGUMBED.E.C."] <- "NGUMBE D.E.C"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NJAMBE"] <- "NJAMBA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NEWLANDS"] <- "NEWLINES"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NANGUMI"] <- "NANGUNI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NJULIR.C.MISSION"] <- "NJULI R.C MISSION"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NKOLESYA"] <- "MKOLESYA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NTATHA"] <- "NTANTHA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NTHUKWANEARMICHIRU"] <- "NTHUKWA NEAR MICHIRU"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NTOSO"] <- "MTOSO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NUMBER1"] <- "NUMBER 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NUMBER2"] <- "NUMBER 2"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NUMBER3"] <- "NUMBER 3"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NUMBER4"] <- "NUMBER 4"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NUMBER5"] <- "NUMBER 5"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NUMBER6"] <- "NUMBER 6"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NUMBER7"] <- "NUMBER 7"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "NUMBER9"] <- "NUMBER 9"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ORIFARM"] <- "ORI FARM"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "PEMBAVERT."] <- "PEMBA VERT"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "PENSULO2A"] <- "PENSULO 2A"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "PENSULO2B"] <- "PENSULO 2B"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "PETERBILILA"] <- "PETER BILILA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "POLICESTATION"] <- "POLICE STATION"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "POLYHOSTELS"] <- "POLY HOSTELS"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "RALPHMAONDE"] <- "RALPH MAONDE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "RCCHURCH"] <- "ROMAN CATHOLIC CHURCH"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "REUBENI"] <- "REUBEN"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ROADBLOCKHOUSES"] <- "ROAD BLOCK HOUSES"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "RODA"] <- "RHODA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "RUBEN"] <- "REUBEN"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SAMSONMGAWA"] <- "SAMSON MGAWA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SANDEKANDIWO"] <- "SANDE KANDIWO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SANJIKA,ANGLICA"] <- "SANJIKA ANGLICA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SANKHWECHE"] <- "SANKWECHE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SIMONMPOMBE"] <- "SIMON MPOMBE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SIMONMTAMBO"] <- "SIMON MTAMBO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SIGEREGE,MARKET"] <- "SIGEREGE MARKET"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SIMCHIMBATRANS.CO"] <- "SIMCHIMBA TRANSPORT COMPANY"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SOCHEQUARRY"] <- "SOCHE QUARRY"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SOLOMONI"] <- "SOLOMON"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SOMBAI"] <- "SOMBA 1"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SOMBAII"] <- "SOMBA 2"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SONKENEARMSIKAWANJALA"] <- "SONKE NEAR MSIKAWANJALA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "STLOUIS"] <- "ST LOUIS"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "STPATRICKS"] <- "ST PATRICKS"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SUNNYSIDE"] <- "SUNNY SIDE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SUYANEARNAMETETE"] <- "SUYA NEAR NAMATETE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "THOMMBERA"] <- "THOMBERA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "TUNG`ANDEMDALA"] <- "TUNG`ANDE MDALA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "WASILINJILIKA"] <- "WASILI NJILIKA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "WILLIAMKULEMERA"] <- "WILLIAM KULEMERA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "WISIKIBISANI"] <- "WISIKI BISANI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "WISIKILILAKA"] <- "WISIKI LILAKA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ZAMBEZICHURCH"] <- "ZAMBEZI CHURCH"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ZINGANGUO"] <- "ZINGANGUWO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "ZONZEZI"] <- "ZONSEZI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "BIYANI"] <- "BISANI"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "AREA14"] <- "AREA 14"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "CHING�OMBE"] <- "CHING'OMBE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "FACECO"] <- "FES COMPANY"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "WHAYO"] <- "JOHN WHAYO"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KANTHIMBANYA"] <- "KANTIMBANYA"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KAZAMBE"] <- "KAZEMBE"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "SIMCHIMBATRANS.CO."] <- "SIMCHIMBA TRANSPORT COMPANY"
+villages_manuscript$`LOCATION NAME`[villages_manuscript$`LOCATION NAME` == "KAZAMBE"] <- "KAZEMBE"
 
 
 #---Making the village names unique
-villages_manuscript2=distinct(villages_manuscript,village, .keep_all = TRUE)
+villages_manuscript2=distinct(villages_manuscript,`LOCATION NAME`, .keep_all = TRUE) #791
 
 #-----Editing names that were missed for final documentation in our manuscript
 
-villages_manuscript2$village[villages_manuscript2$village == "CHAPOTERA"] <- "CHAPOTELA"
-villages_manuscript2$village[villages_manuscript2$village == "CHING’OMBE"] <- "CHING'OMBE"
-villages_manuscript2$village[villages_manuscript2$village == "GOLIRO"] <- "GOLIYO"
-villages_manuscript2$village[villages_manuscript2$village == "NDILANDEHIL"] <- "NDILANDE HILL"
-villages_manuscript2$village[villages_manuscript2$village == "NTAMBARIKA"] <- "NTAMBALIKA"
-villages_manuscript2$village[villages_manuscript2$village == "SANJIKA,ANGLICAN"] <- "SANJIKA NEAR ANGLICAN"
+villages_manuscript2$`LOCATION NAME`[villages_manuscript2$`LOCATION NAME` == "CHAPOTERA"] <- "CHAPOTELA"
+villages_manuscript2$`LOCATION NAME`[villages_manuscript2$`LOCATION NAME` == "CHING’OMBE"] <- "CHING'OMBE"
+villages_manuscript2$`LOCATION NAME`[villages_manuscript2$`LOCATION NAME` == "GOLIRO"] <- "GOLIYO"
+villages_manuscript2$`LOCATION NAME`[villages_manuscript2$`LOCATION NAME` == "NDILANDEHIL"] <- "NDILANDE HILL"
+villages_manuscript2$`LOCATION NAME`[villages_manuscript2$`LOCATION NAME` == "NTAMBARIKA"] <- "NTAMBALIKA"
+villages_manuscript2$`LOCATION NAME`[villages_manuscript2$`LOCATION NAME` == "SANJIKA,ANGLICAN"] <- "SANJIKA NEAR ANGLICAN"
+villages_manuscript2$`LOCATION NAME`[villages_manuscript2$`LOCATION NAME` == "LUBEN"] <- "REUBEN"
+villages_manuscript2$`LOCATION NAME`[villages_manuscript2$`LOCATION NAME` == "RNSAMBUZI"] <- "R NSAMBUZI"
+villages_manuscript2$`LOCATION NAME`[villages_manuscript2$`LOCATION NAME` == "SOMBA1"] <- "SOMBA 1"
 
-##---Making the village names unique
-villages_manuscript3=distinct(villages_manuscript2,village, .keep_all = TRUE) #788 locations
+
+##---Making the `LOCATION NAME` names unique
+villages_manuscript3 <- distinct(villages_manuscript2,`LOCATION NAME`,.keep_all = TRUE) 
+villages_manuscript3 <- distinct(villages_manuscript3,X, Y, .keep_all = TRUE) #771
+
+#Putting the column observation to lower case
+villages_manuscript3$`LOCATION NAME` <- tools::toTitleCase(tolower(villages_manuscript3$`LOCATION NAME`))
+villages_manuscript3$`HEALTH FACILITY` <- tools::toTitleCase(tolower(villages_manuscript3$`HEALTH FACILITY`))
+villages_manuscript3$`AREA TYPE` <- tools::toTitleCase(tolower(villages_manuscript3$`AREA TYPE`))
 
 
-#--Arranging villages in ascending order
+# Define abbreviations to keep fully capitalized
+abbreviations <- c("BCA", "HHI", "CCAP", "HC", "CI", "DCA","SDA","1A","2B","LEA","B",
+                   "ETG","JB")
+
+# Custom function
+capitalize_with_abbrev <- function(x) {
+  words <- str_split(x, "\\s+", simplify = TRUE)
+  capitalized <- sapply(words, function(word) {
+    word_upper <- toupper(word)
+    if (word_upper %in% abbreviations) {
+      return(word_upper)
+    } else {
+      return(str_to_title(tolower(word)))
+    }
+  })
+  str_c(capitalized, collapse = " ")
+}
+
+
+villages_manuscript3 <- villages_manuscript3 %>%
+  mutate(`LOCATION NAME` = sapply(`LOCATION NAME`, capitalize_with_abbrev))
+
+villages_manuscript3 <- villages_manuscript3 %>%
+  mutate(`HEALTH FACILITY` = sapply(`HEALTH FACILITY`, capitalize_with_abbrev))
+
+
+#--Arranging `LOCATION NAME`s in ascending order
 manuscript <- villages_manuscript3 %>%
-  arrange(village)
+  arrange(`LOCATION NAME`)
+
+# Calculating how many locations are in rural and urban areas
+manuscript %>%
+  count(`AREA TYPE`) # Rural = 496, Urban = 275
 
 
 #-----Saving our datasets to drive----#
 
-#st_write(manuscript, "intermediaries/fine_scale_Blantyre_locations2.geojson")
-#write_csv(manuscript,"intermediaries/fine_scale_Blantyre_locations.csv")
+geojson_format <- manuscript[,c("LOCATION NAME","HEALTH FACILITY","TA/WARD NAME","AREA TYPE","DATE MAPPED")]
+
+#st_write(geojson_format, "intermediaries/fine_scale_Blantyre_locations3.geojson")
+
+
+csv_format <- st_drop_geometry(manuscript)
+
+#write_csv(csv_format,"intermediaries/fine_scale_Blantyre_locations4.csv")
 
 
 ##----END----#
 ###########################################################################################
+
