@@ -815,16 +815,23 @@ manuscript %>%
   count(`AREA TYPE`) # Rural = 496, Urban = 275
 
 
+# Checking for duplicates in our dataset
+
+manuscript[duplicated(manuscript[c("LOCATION NAME", "X", "Y")]), ]
+
+sum(duplicated(manuscript))  # number of duplicated rows
+
+
 #-----Saving our datasets to drive----#
 
 geojson_format <- manuscript[,c("LOCATION NAME","HEALTH FACILITY","TA/WARD NAME","AREA TYPE","DATE MAPPED")]
 
-#st_write(geojson_format, "intermediaries/fine_scale_Blantyre_locations3.geojson")
+st_write(geojson_format, "intermediaries/fine_scale_Blantyre_locations.geojson")
 
 
 csv_format <- st_drop_geometry(manuscript)
 
-#write_csv(csv_format,"intermediaries/fine_scale_Blantyre_locations4.csv")
+write_csv(csv_format,"intermediaries/fine_scale_Blantyre_locations.csv")
 
 
 ##----END----#
