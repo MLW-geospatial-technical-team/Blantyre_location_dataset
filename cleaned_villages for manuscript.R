@@ -9,7 +9,6 @@ pacman::p_load(sf,
 #-------- Loading `LOCATION NAME`s data ----------------------------#
 data = read_sf("data/villages/villages_updated_0208.GeoJSON")
 
-
 #----capitalizing village and health facility names-----#
 data$`Village name` = as.factor(data$`Village name`)
 levels(data$`Village name`)
@@ -404,33 +403,16 @@ data$`_submission_time` <- as.Date(data$`_submission_time`)
 
 data=st_zm(data) #908 locations
 
-#Round geometry and extract X and Y
-data$geometry <- lapply(data$geometry, function(coord) round(coord, 5))
-data$X <- sapply(data$geometry, function(coord) coord[1])
-data$Y <- sapply(data$geometry, function(coord) coord[2])
 
-# Format with exactly 5 decimal places (as character for display/export)
-
-data$X_str <- format(round(data$X, 5), nsmall = 5)
-data$Y_str <- format(round(data$Y, 5), nsmall = 5)
-
-# Reformat geometry column to have formatted coordinates as string
-data$geometry_str <- paste0("c(", data$X_str, ", ", data$Y_str, ")")
-
-# Create sf object using numeric X and Y (not string ones)
-data_sf <- st_as_sf(data, coords = c("X", "Y"), crs = 4326)  # WGS84
-
-
-
-#write_csv(data_sf,"intermediaries/kobo_dataset.csv") # This was exported and visualized in QGIS
+#st_write(data,"intermediaries/kobo_data.geojson") # This was exported and visualized in QGIS
                                                       # Also, added an attribute of TA/Ward name and 
                                                       # Area type to the dataset
 
-
 ##Imported villages from QGIS and continued data cleaning
-kobo_villages <- read_sf("intermediaries/kobo_dataset_ta.shp")
+kobo_villages <- read_sf("intermediaries/kobo_data_ta.shp")
 
-kobo_villages2 <- distinct(kobo_villages,village, .keep_all = TRUE)
+
+kobo_villages2 <- distinct(kobo_villages,village, .keep_all = TRUE) #804
 
 #Renaming columns of the data set
 kobo_villages2 <- kobo_villages2 %>%
@@ -442,9 +424,8 @@ kobo_villages2 <- kobo_villages2 %>%
     "AREA TYPE" = "area_type"
   )
 
-
 ###---Dataset for manuscript
-villages_manuscript <- kobo_villages2[, c("LOCATION NAME","HEALTH FACILITY","TA/WARD NAME","AREA TYPE","DATE MAPPED","X","Y")]
+villages_manuscript <- kobo_villages2[, c("LOCATION NAME","HEALTH FACILITY","TA/WARD NAME","AREA TYPE","DATE MAPPED")]
 
 
 villages_manuscript$`LOCATION NAME` = as.factor(villages_manuscript$`LOCATION NAME`)
@@ -771,8 +752,7 @@ villages_manuscript2$`LOCATION NAME`[villages_manuscript2$`LOCATION NAME` == "SO
 
 
 ##---Making the `LOCATION NAME` names unique
-villages_manuscript3 <- distinct(villages_manuscript2,`LOCATION NAME`,.keep_all = TRUE) 
-villages_manuscript3 <- distinct(villages_manuscript3,X, Y, .keep_all = TRUE) #771
+villages_manuscript3 <- distinct(villages_manuscript2,`LOCATION NAME`,.keep_all = TRUE) #787
 
 #Putting the column observation to lower case
 villages_manuscript3$`LOCATION NAME` <- tools::toTitleCase(tolower(villages_manuscript3$`LOCATION NAME`))
@@ -805,6 +785,16 @@ villages_manuscript3 <- villages_manuscript3 %>%
 villages_manuscript3 <- villages_manuscript3 %>%
   mutate(`HEALTH FACILITY` = sapply(`HEALTH FACILITY`, capitalize_with_abbrev))
 
+villages_manuscript3 <- distinct(villages_manuscript3,`geometry`,.keep_all = TRUE) #764
+
+
+#Extract X and Y directly from geometry (no rounding, full precision)
+villages_manuscript3$X <- sapply(villages_manuscript3$geometry, `[`, 1)
+villages_manuscript3$Y <- sapply(villages_manuscript3$geometry, `[`, 2)
+
+
+villages_manuscript3 <- distinct(villages_manuscript3,X, Y, .keep_all = TRUE) #764
+
 
 #--Arranging `LOCATION NAME`s in ascending order
 manuscript <- villages_manuscript3 %>%
@@ -812,22 +802,19 @@ manuscript <- villages_manuscript3 %>%
 
 # Calculating how many locations are in rural and urban areas
 manuscript %>%
-  count(`AREA TYPE`) # Rural = 496, Urban = 275
+  count(`AREA TYPE`) # Rural = 492, Urban = 272
 
 
 # Checking for duplicates in our dataset
 
-manuscript[duplicated(manuscript[c("LOCATION NAME", "X", "Y")]), ]
+manuscript[duplicated(manuscript[c("LOCATION NAME","geometry","X", "Y")]), ]
 
 sum(duplicated(manuscript))  # number of duplicated rows
 
 
 #-----Saving our datasets to drive----#
 
-geojson_format <- manuscript[,c("LOCATION NAME","HEALTH FACILITY","TA/WARD NAME","AREA TYPE","DATE MAPPED")]
-
-st_write(geojson_format, "intermediaries/fine_scale_Blantyre_locations.geojson")
-
+geojson_format <- st_write(manuscript, "intermediaries/fine_scale_Blantyre_locations.geojson")
 
 csv_format <- st_drop_geometry(manuscript)
 
@@ -836,4 +823,3 @@ write_csv(csv_format,"intermediaries/fine_scale_Blantyre_locations.csv")
 
 ##----END----#
 ###########################################################################################
-
